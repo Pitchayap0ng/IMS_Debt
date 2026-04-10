@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Minimal Debt - Negative Flow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="max-w-md mx-auto">
+
+    <header class="p-10 pt-12 bg-white">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">ยอดหนี้รวมปัจจุบัน</p>
+        <div class="flex justify-between items-end">
+            <h1 class="text-5xl font-black tracking-tighter text-rose-600">
+                -<span id="totalDebtDisplay">0</span>
+            </h1>
+            <button onclick="exportDebtExcel()"
+                class="text-[10px] font-bold text-slate-400 bg-slate-50 px-4 py-2 rounded-full">EXCEL</button>
+        </div>
+    </header>
+
+    <main class="px-6 pb-32">
+        <section id="page-entry" class="page active">
+            <div class="glass-card p-6 bg-white">
+                <h2 class="text-xs font-black uppercase tracking-widest mb-6 text-slate-300">New Transaction</h2>
+                <div class="space-y-4">
+                    <select id="selectDebtor" class="input-minimal font-bold text-slate-600"></select>
+                    <input id="inputAmount" type="number" placeholder="0.00"
+                        class="input-minimal text-2xl font-black text-rose-500">
+                    <div class="flex gap-3 pt-2">
+                        <button onclick="handleRecord('borrow')"
+                            class="btn-action bg-slate-900 text-white flex-1 shadow-lg shadow-slate-200">ยืมเพิ่ม</button>
+                        <button onclick="handleRecord('repay')"
+                            class="btn-action bg-rose-500 text-white flex-1 shadow-lg shadow-rose-200">คืนเงิน</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="page-interest" class="page">
+            <h2 class="text-xs font-black uppercase tracking-widest mb-4 px-2 text-rose-400">Interest Tracking</h2>
+            <div class="glass-card p-6 mb-6 bg-white border-rose-100">
+                <div class="space-y-4">
+                    <select id="selectInterestDebtor" class="input-minimal font-bold"></select>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input id="principleAmount" type="number" placeholder="ต้น" class="input-minimal font-bold">
+                        <input id="interestRate" type="number" value="10" class="input-minimal font-bold text-rose-500">
+                    </div>
+                    <button onclick="saveInterestDebt()"
+                        class="btn-action w-full bg-rose-600 text-white">เปิดยอดหนี้ดอก</button>
+                </div>
+            </div>
+            <div id="interestDebtList" class="space-y-4"></div>
+        </section>
+
+        <section id="page-history" class="page">
+            <h2 class="text-xs font-black uppercase tracking-widest mb-4 px-2 text-slate-400">Analysis & Logs</h2>
+
+            <div class="glass-card p-4 mb-6 bg-white overflow-hidden">
+                <canvas id="debtChart" style="max-height: 160px;"></canvas>
+                <p class="text-[9px] text-center text-slate-400 font-bold uppercase mt-3 tracking-widest">Life Trend (7
+                    Latest)</p>
+            </div>
+
+            <div id="historyList" class="space-y-3"></div>
+        </section>
+
+        <section id="page-config" class="page">
+            <h2 class="text-xs font-black uppercase tracking-widest mb-4 px-2 text-slate-400">Settings</h2>
+            <div class="glass-card p-6 mb-8 bg-white">
+                <input id="newDebtorName" type="text" placeholder="ชื่อลูกหนี้ใหม่" class="input-minimal mb-3">
+                <button onclick="addDebtor()" class="btn-action w-full bg-slate-800 text-white">เพิ่มชื่อ</button>
+            </div>
+            <div id="debtorMasterList" class="space-y-2"></div>
+        </section>
+    </main>
+
+    <nav class="nav-container">
+        <button onclick="showPage('page-entry', this)" class="nav-item active">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                </path>
+            </svg>
+            <span>HOME</span>
+        </button>
+        <button onclick="showPage('page-interest', this)" class="nav-item">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                    d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+            </svg>
+            <span>INTEREST</span>
+        </button>
+        <button onclick="showPage('page-history', this)" class="nav-item">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>LOG</span>
+        </button>
+        <button onclick="showPage('page-config', this)" class="nav-item">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                </path>
+            </svg>
+            <span>SETTING</span>
+        </button>
+    </nav>
+
+    <script src="app.js"></script>
+    <script src="report.js"></script>
+    <script src="interest.js"></script>
+    <script>
+        function showPage(id, el) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+            if (el) el.classList.add('active');
+        }
+    </script>
+</body>
+
+</html>
